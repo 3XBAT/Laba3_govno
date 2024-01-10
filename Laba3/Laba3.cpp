@@ -6,9 +6,9 @@
 #include "input.h"
 #include <regex>
 #include <map>
+
 using namespace std;
 
-void Error(){};
 
 string sliceOfString(string& str, int index)//для отбрасывания проверенной части кода
 {
@@ -31,7 +31,7 @@ string sliceOfString(string& str, int index)//для отбрасывания п
 
 string PartOfTheString(string& code)//для деления кода по разде
 {
-	regex regexSepar(R"([;,{}=\s])");
+	regex regexSepar(R"([-;,(){}=+*\s])");
 	smatch match;
 
 	bool flag = 1;
@@ -99,10 +99,9 @@ struct StatsOfVar
 	bool isBool;
 	string name;
 	bool isInit;
-	bool status;//открыта для объявления или нет
+	char status;                       //открыта для объявления или нет если статус 1, то переменная не доступна для определения, если 0, -1, -2, -3 и тд, то доступна для переопределения так как мы находимся в другой области видимости
 	string value;
 };
-
 
 void ThrowError(vector<Token>::iterator it, Errors error)
 {
@@ -137,6 +136,7 @@ void ThrowError(vector<Token>::iterator it, Errors error)
 	if (error == UNDEF) cout << "   Error:" << " Unknown identifier" << endl;
 }
 
+
 vector<Token>tokenize(string& code)
 {
 	Token token;
@@ -146,9 +146,6 @@ vector<Token>tokenize(string& code)
 	vector<Token> tokens(1,token);
 	vector<Token>::iterator it = tokens.begin();
 	
-
-	
-
 	regex regexKeyWords("(alignas|alignof|and b|and_eq b|asm a|auto|bitand b|bitor b|break|case|catch|class|compl b|concept c|const|const_cast|consteval c|constexpr|constinit c|continue|co_await c|co_return c|co_yield c|decltype|default|delete|do|dynamic_cast|else|enum|explicit|export c|extern|for|friend|goto|if|inline|long|mutable|namespace|new|noexcept|not b|not_eq b|nullptr|operator|or b|or_eq b|private|protected|public|register reinterpret_cast|requires c|return|short|signed|sizeof|static|static_assert|static_cast|struct|switch|template|this|thread_local|throw|try|typedef|typeid|typename|union|unsigned|using declaration|using directive|virtual|volatile|wchar_t|while|xor b|xor_eq b)");
 	regex regexDataType(R"(\bchar\b|\bfloat\b|\bdouble\b|\bint\b|\bvoid\b|\bstring\b)");
 	regex regexSepar(R"([;,{}='"])");
@@ -310,83 +307,87 @@ vector<Token>tokenize(string& code)
 
 }
 
-bool CheckTabelForBool(list<StatsOfVar>& TableOfVar, list<StatsOfVar>::iterator iter)
-{
-	bool flag_equality = 0;
-	
-
-	while (iter != TableOfVar.begin())
-	{
-		if (iter->isBool)
-		{
-			flag_equality = 1;
-		}
-		iter--;
-	}
-
-	if (flag_equality)
-	{
-		return true;
-	}
-	else
-	{
-		return false;
-	}
-}
 
 bool CheckVarForTable(list<StatsOfVar>& TableOfVar, vector<Token>::iterator it)
 {
-	auto temp_iter = TableOfVar.end();
-	temp_iter--;
-	while (temp_iter != TableOfVar.begin())
-	{
-		if (temp_iter->name == it->value && temp_iter->status )
-		{
-			return(true);
-		}
-		temp_iter--;
-	}
-	return(false);
-}
-
-list<StatsOfVar>::iterator SearchVarForTable(list<StatsOfVar>& TableOfVar, vector<Token>::iterator it)
-{
-	auto temp_iter = TableOfVar.end();
-	temp_iter--;
-	while (temp_iter != TableOfVar.begin())
-	{
-		if (temp_iter->name == it->value)
-		{
-			return(temp_iter);
-		}
-		temp_iter--;
-	}
-
-}
-
-
-
-bool proverkaForIdent(list<StatsOfVar>& TableOfVar, vector<Token>::iterator it)
-{
-	//у нас есть идент и нам нужно проверить есть ли он в текущей области видимости
-
-	auto temp_iter = SearchVarForTable(TableOfVar, it);
-
+	if (TableOfVar.size() == 0) return false;
 	
-	if (it->value == temp_iter->name)
+	auto temp_iter = TableOfVar.end();
+	temp_iter--;
+	
+	if (TableOfVar.size() != 1) {
+		while (temp_iter != TableOfVar.begin())
+		{
+			if (temp_iter->name == it->value && temp_iter->status == 1)
+			{
+				return(true);
+			}
+			temp_iter--;
+		}
+	}
+	else
 	{
-		if (temp_iter->status = 0)
+		if (temp_iter->name == it->value && temp_iter->status == 1)
 		{
 			return(true);
 		}
 		else
 		{
-			return(false);
+			return false;
+		}
+	}
+	return(false);
+}
+
+list<StatsOfVar>::iterator SearchVarForTable(list<StatsOfVar>& TableOfVar, vector<Token>::iterator it)//SearchVarInTable
+{
+	auto temp_iter = TableOfVar.end();
+	temp_iter--;
+
+	if (TableOfVar.size() != 1)
+	{
+		while (temp_iter != TableOfVar.begin())
+		{
+			if (temp_iter->name == it->value)
+			{
+				return(temp_iter);
+			}
+			temp_iter--;
+		}
+	}
+	else
+	{
+		if (temp_iter->name == it->value)
+		{
+			return(temp_iter);
 		}
 	}
 
-
 }
+
+
+
+//bool proverkaForIdent(list<StatsOfVar>& TableOfVar, vector<Token>::iterator it)//проверяет возможность переопредления перменной
+//{
+//	//у нас есть идент и нам нужно проверить есть ли он в текущей области видимости
+//
+//	auto temp_iter = SearchVarForTable(TableOfVar, it);
+//		
+//	if (it->value == temp_iter->name)
+//	{
+//		if (temp_iter->status = 0)
+//		{
+//			return(true);
+//		}
+//		else
+//		{
+//			return(false);
+//		}
+//	}
+//	
+//
+//
+//}
 
 bool CheckLiteralForCorrect(vector<Token>::iterator& it, string literal)
 {
@@ -401,6 +402,7 @@ bool CheckLiteralForCorrect(vector<Token>::iterator& it, string literal)
 		}
 		else
 		{
+			it++;
 			return false;
 		}
 	}
@@ -416,48 +418,12 @@ bool CheckLiteralForCorrect(vector<Token>::iterator& it, string literal)
 		}
 		else
 		{
+			it++;
 			return false;
 		}
 	}
 
 }//строго для bool-а
-
-void CheckVariables(vector<Token>& Tokens, list<StatsOfVar>& TableOfVar, vector<Token>::iterator& it, list<StatsOfVar>::iterator& iter)//проверяет истинность переменных которыми мы инициализируем новую перменную
-{
-	// мы заходми сюда, когда возникают ситуации
-	//1) int/bool var = a + b + c...
-	//2) int/bool var{a + b + c...}//нельзя так
-	//3) int/bool var = {a + b + c...}//нельзя так
-	// когда у нас открываются {}, там можно лишь 1, 0 либо true false
-	//когда программа натыкается не на ;, а на ещё один литерал или идентификатор 
-
-
-	it++;
-	if (it->type == SEMICOLON)
-	{
-		StatsOfVar var;
-		var.isBool = 1;
-		var.isInit = 1;
-		var.name = (it - 3)->value;
-		var.status = 1;
-		var.value = (it - 1)->value;
-		TableOfVar.push_back(var);
-		it++;
-		if(TableOfVar.size() > 1) iter++;
-		return;
-	}
-	else if (it->type == LITERAL)
-	{
-		CheckVariables(Tokens, TableOfVar, it, iter);
-	}
-	else
-	{
-		ThrowError(it, EXP_SEMICOLON);
-		return;
-	}
-
-	
-}
 
 
 void CheckIdentifier(vector<Token>::iterator& it, list<StatsOfVar>::iterator& iter, list<StatsOfVar>& TableOfVar, vector<Token>& Tokens)//проверяет корректность множественного определения перменных одного типа
@@ -481,7 +447,7 @@ void CheckIdentifier(vector<Token>::iterator& it, list<StatsOfVar>::iterator& it
 
 	temp_it = it;
 
-
+	
 
 	if (flag_on_bool)//////////////////////////////////////////////
 	{
@@ -489,20 +455,33 @@ void CheckIdentifier(vector<Token>::iterator& it, list<StatsOfVar>::iterator& it
 		{
 			bool flag_equality = 0;
 			bool flag_redef = 1;
-
-			while (iter != TableOfVar.begin())
+			if (TableOfVar.size() > 1) {//проверка на то больше ли одной перменной в нашей таблице
+				while (iter != TableOfVar.begin())
+				{
+					if (it->value == iter->name)
+					{
+						flag_equality = 1;
+						if (iter->status == 1)
+						{
+							flag_redef = 0;
+						}
+						break;
+					}
+					iter--;
+				}
+			}
+			else
 			{
 				if (it->value == iter->name)
 				{
 					flag_equality = 1;
-					if (iter->status)
+					if (iter->status == 1)
 					{
 						flag_redef = 0;
 					}
-					break;
 				}
-				iter--;
 			}
+
 
 
 			if (flag_redef)// начинаются проврки////////////////////////////////////////////////////////////////
@@ -549,6 +528,7 @@ void CheckIdentifier(vector<Token>::iterator& it, list<StatsOfVar>::iterator& it
 						else
 						{
 							ThrowError(it, WRONG_LITERAL);
+							return;
 						}
 					}
 					else if (it->type == IDENTIFIER)
@@ -678,13 +658,15 @@ void CheckIdentifier(vector<Token>::iterator& it, list<StatsOfVar>::iterator& it
 									else
 									{
 										ThrowError(it, WRONG_INDENTIFIER);
+										return;
 										//indet не инициализирован
 									}
 								}
 								else
 								{
 									ThrowError(it, WRONG_INDENTIFIER);
-									//идентификатор говно
+									return;
+									//идентификатор 
 								}
 							}
 							else
@@ -792,13 +774,15 @@ void CheckIdentifier(vector<Token>::iterator& it, list<StatsOfVar>::iterator& it
 								else
 								{
 									ThrowError(it, WRONG_INDENTIFIER);
+									return;
 									//indet не инициализирован
 								}
 							}
 							else
 							{
 								ThrowError(it, WRONG_INDENTIFIER);
-								//идентификатор говно
+								return;
+								//идентификатор 
 							}
 						}
 						else
@@ -813,10 +797,7 @@ void CheckIdentifier(vector<Token>::iterator& it, list<StatsOfVar>::iterator& it
 						return;
 					}
 				}
-				else if (it->type == SEMICOLON)
-				{
 
-				}
 			}
 			else
 			{
@@ -898,6 +879,7 @@ void CheckIdentifier(vector<Token>::iterator& it, list<StatsOfVar>::iterator& it
 								else
 								{
 									ThrowError(it, WRONG_LITERAL);
+									return;
 								}
 							}
 							else if (it->type == IDENTIFIER)
@@ -1027,13 +1009,15 @@ void CheckIdentifier(vector<Token>::iterator& it, list<StatsOfVar>::iterator& it
 											else
 											{
 												ThrowError(it, WRONG_INDENTIFIER);
+												return;
 												//indet не инициализирован
 											}
 										}
 										else
 										{
 											ThrowError(it, WRONG_INDENTIFIER);
-											//идентификатор говно
+											return;
+											//идентификатор 
 										}
 									}
 									else
@@ -1058,12 +1042,14 @@ void CheckIdentifier(vector<Token>::iterator& it, list<StatsOfVar>::iterator& it
 					else
 					{
 						ThrowError(it, WRONG_INDENTIFIER);
+						return;
 						//indet не инициализирован
 					}
 				}
 				else
 				{
 					ThrowError(it, WRONG_INDENTIFIER);
+					return;
 					//идентификатор говно
 				}
 			}
@@ -1082,16 +1068,54 @@ void CheckIdentifier(vector<Token>::iterator& it, list<StatsOfVar>::iterator& it
 
 
 
-	else//для инициализции пачки 
-	{
-		if (it->type == IDENTIFIER)
-		{
-
-		}
-	}
 	
 }
 
+void CheckVariables(vector<Token>& Tokens, list<StatsOfVar>& TableOfVar, vector<Token>::iterator& it, list<StatsOfVar>::iterator& iter)//проверяет истинность переменных которыми мы инициализируем новую перменную
+{
+	it++;
+	if (it->type == SEMICOLON)
+	{
+		StatsOfVar var;
+		var.isBool = 1;
+		var.isInit = 1;
+		var.name = (it - 3)->value;
+		var.status = 1;
+		var.value = (it - 1)->value;
+		TableOfVar.push_back(var);
+		it++;
+		iter = TableOfVar.end();
+		iter--;
+		return;
+	}
+	else if (it->type == LITERAL)///////dllfmldvldmvldmlvdldvm
+	{
+		it++;
+		CheckVariables(Tokens, TableOfVar, it, iter);
+	}
+	else if (it->type == COMMA)
+	{
+		StatsOfVar var;
+		var.isBool = 1;
+		var.isInit = 1;
+		var.name = (it - 3)->value;
+		var.status = 1;
+		var.value = (it - 1)->value;
+		TableOfVar.push_back(var);
+		it++;
+		iter = TableOfVar.end();
+		iter--;
+	
+		CheckIdentifier(it, iter, TableOfVar, Tokens);
+	}
+	else
+	{
+		ThrowError(it, EXP_SEMICOLON);
+		return;
+	}
+
+
+}
 
 void ChangeStatus(list<StatsOfVar>& pointer,  bool action)// 1 - новая область, 0 - выходо из области
 {
@@ -1105,13 +1129,7 @@ void ChangeStatus(list<StatsOfVar>& pointer,  bool action)// 1 - новая об
 	{
 		while (iter_start != pointer.end())
 		{
-			
-			
-				if (iter_start->status)
-				{
-					iter_start->status = 0;
-				}
-			
+			iter_start->status -= 1;
 			iter_start++;
 		}
 	}
@@ -1126,21 +1144,20 @@ void ChangeStatus(list<StatsOfVar>& pointer,  bool action)// 1 - новая об
 					iter_end = pointer.end();
 					
 				}
+
+				if (iter_end->status <= 0)
+				{
+					iter_end->status += 1;
+				}
 		
 			iter_end--;
-		}
-
-		while (iter_end != pointer.begin())
-		{
-			iter_end->status = 1;
 		}
 
 	}
 }
 
-
 void AnalayzeTheBraces(vector<Token>::iterator& it, list<StatsOfVar>::iterator& iter, list<StatsOfVar>& TableOfVar, vector<Token>& Tokens)
-{
+{//анализирует корректность кода в фиг. скобках при инициализации перменной
 	it++;
 	if (it->type == LITERAL)
 	{
@@ -1183,16 +1200,18 @@ void AnalayzeTheBraces(vector<Token>::iterator& it, list<StatsOfVar>::iterator& 
 			else
 			{
 				ThrowError(it, EXP_RIGHT_BRACE);
+				return;
 			}
 		}
 		else
 		{
 			ThrowError(it, WRONG_LITERAL);
+			return;
 		}
 	}
-	else if (it->type == IDENTIFIER)
-	{
-		if (TableOfVar.size() == 0 || proverkaForIdent(TableOfVar, it))
+	else if (it->type == IDENTIFIER || (it->type == UNDEFINED && CheckVarForTable(TableOfVar,it)))
+	{//второе выражение проверят если у нас андеф, то все равно нужно проверить по таблице вдруг такая перменная у нас есть
+		if (TableOfVar.size() == 0 || (SearchVarForTable(TableOfVar,it)->status == 1 && SearchVarForTable(TableOfVar,it)->isInit))
 		{
 			it++;
 				if (it->type == RIGHT_BRACE)
@@ -1211,12 +1230,14 @@ void AnalayzeTheBraces(vector<Token>::iterator& it, list<StatsOfVar>::iterator& 
 								if (temp_it->type == BOOL)
 								{
 									var.name = (temp_it + 1)->value;
+									break;
 								}
 								temp_it--;
 							}
 							TableOfVar.push_back(var);
 							it++;
-							iter++;
+							iter = TableOfVar.end();
+							iter--;
 							return;
 						}
 						else
@@ -1275,7 +1296,7 @@ void analyze(vector<Token>& Tokens)
 			it++;
 			if (it->type == IDENTIFIER)
 			{
-				if (TableOfVar.size() == 0 || proverkaForIdent(TableOfVar, it))
+				if (TableOfVar.size() == 0 || !CheckVarForTable(TableOfVar,it))//
 				{
 
 					it++;
@@ -1290,17 +1311,33 @@ void analyze(vector<Token>& Tokens)
 						{
 							if (CheckLiteralForCorrect(it, it->value))
 							{
-								CheckVariables(Tokens, TableOfVar, it, iter);
+								CheckVariables(Tokens,TableOfVar,it,iter);//CheckVariebles раньше было
 							}
 						}
 						else if (it->type == IDENTIFIER || it->type == UNDEFINED)
 						{
+							if (TableOfVar.size() == 0)
+							{
+								ThrowError(it, NON_DEF_VAR);
+								return;
+							}
+
 							bool flag = 0;
 							auto temp_iter = TableOfVar.end();
 							temp_iter--;
-							while (temp_iter != TableOfVar.begin()||TableOfVar.size())
+							
+							while (temp_iter != TableOfVar.begin()||TableOfVar.size()==1)
 							{
-								if (it->value == iter->name && iter->isInit == 1 && iter->status == 1) flag = 1;
+								if (it->value == temp_iter->name && temp_iter->isInit == 1 && temp_iter->status == 1) 
+								{
+									flag = 1;
+									break;
+								}
+								
+								if (TableOfVar.size() == 1)
+								{
+									break;
+								}
 								temp_iter--;
 							}
 
@@ -1320,16 +1357,23 @@ void analyze(vector<Token>& Tokens)
 									it++;
 									iter++;
 								}
+								else
+								{
+									ThrowError(it, EXP_SEMICOLON);
+									return;
+								}
 
 							}
 							else
 							{
 								ThrowError(it, NON_INIT_VAR);
+								return;
 							}
 						}
 						else
 						{
 							ThrowError(it, EXP_SEMICOLON);
+							return;
 						}
 					}
 					else if (it->type == LEFT_BRACE)
@@ -1381,19 +1425,19 @@ void analyze(vector<Token>& Tokens)
 			else
 			{
 				ThrowError(it, EXP_IDENTIFIER);
-				break;
+				return;
 			}
 
 		}
 		else if (it->type == UNDEFINED)
 		{
 			ThrowError(it, UNDEF);
-			break;
+			return;
 		}
 		else
 		{
 			ThrowError(it, WRONG_DATA_TYPE);
-			break;
+			return;
 		}
 
 
@@ -1415,6 +1459,8 @@ int main() {
 
 	vector<Token> tokens = tokenize(code);
 	
+	cout << endl;
+
 	analyze(tokens);
 
 } 

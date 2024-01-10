@@ -23,7 +23,7 @@
     <Text Include="keywords.txt" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="tokenize.h">
+    <ClInclude Include="ThrowError.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
   </ItemGroup>
